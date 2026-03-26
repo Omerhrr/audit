@@ -349,6 +349,130 @@ class OpenAIProvider(LLMProvider):
 
 
 # =============================================================================
+# OpenRouter Provider
+# =============================================================================
+
+class OpenRouterProvider(LLMProvider):
+    """OpenRouter API provider - aggregates multiple LLM providers"""
+    
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or os.getenv("OPENROUTER_API_KEY", "")
+        self.base_url = "https://openrouter.ai/api/v1"
+        self.timeout = 180.0
+        
+    async def complete(
+        self,
+        messages: List[ChatMessage],
+        model: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> ChatResponse:
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required")
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.api_key}",
+                "HTTP-Referer": "https://github.com/evm-auditor",
+                "X-Title": "EVM Solidity Auditor",
+            }
+            
+            payload = {
+                "messages": [m.to_dict() for m in messages],
+                "model": model,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+            
+            try:
+                response = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=headers,
+                    json=payload
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                return ChatResponse(
+                    content=content,
+                    model=data.get("model", model),
+                    usage=data.get("usage", {}),
+                )
+            except httpx.HTTPError as e:
+                logger.error(f"OpenRouter API error: {e}")
+                raise
+    
+    async def stream_complete(
+        self,
+        messages: List[ChatMessage],
+        model: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> AsyncGenerator[str, None]:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.api_key}",
+                "HTTP-Referer": "https://github.com/evm-auditor",
+                "X-Title": "EVM Solidity Auditor",
+            }
+            
+            payload = {
+                "messages": [m.to_dict() for m in messages],
+                "model": model,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "stream": True,
+            }
+            
+            try:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/chat/completions",
+                    headers=headers,
+                    json=payload
+                ) as response:
+                    async for line in response.aiter_lines():
+                        if line.startswith("data: "):
+                            data_str = line[6:]
+                            if data_str == "[DONE]":
+                                break
+                            try:
+                                data = json.loads(data_str)
+                                content = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                                if content:
+                                    yield content
+                            except (json.JSONDecodeError, KeyError, IndexError):
+                                continue
+            except httpx.HTTPError as e:
+                logger.error(f"OpenRouter streaming error: {e}")
+                raise
+    
+    def get_available_models(self) -> List[Dict[str, str]]:
+        return [
+            # OpenAI models via OpenRouter
+            {"id": "openai/gpt-4o", "name": "GPT-4o (OpenRouter)", "provider": "openrouter"},
+            {"id": "openai/gpt-4-turbo", "name": "GPT-4 Turbo (OpenRouter)", "provider": "openrouter"},
+            {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini (OpenRouter)", "provider": "openrouter"},
+            # Anthropic models via OpenRouter
+            {"id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet (OpenRouter)", "provider": "openrouter"},
+            {"id": "anthropic/claude-3-opus", "name": "Claude 3 Opus (OpenRouter)", "provider": "openrouter"},
+            # Meta models via OpenRouter
+            {"id": "meta-llama/llama-3.1-70b-instruct", "name": "Llama 3.1 70B (OpenRouter)", "provider": "openrouter"},
+            {"id": "meta-llama/llama-3.1-405b-instruct", "name": "Llama 3.1 405B (OpenRouter)", "provider": "openrouter"},
+            # Google models via OpenRouter
+            {"id": "google/gemini-pro-1.5", "name": "Gemini Pro 1.5 (OpenRouter)", "provider": "openrouter"},
+            # DeepSeek models
+            {"id": "deepseek/deepseek-chat", "name": "DeepSeek Chat (OpenRouter)", "provider": "openrouter"},
+            {"id": "deepseek/deepseek-coder", "name": "DeepSeek Coder (OpenRouter)", "provider": "openrouter"},
+            # Mistral models
+            {"id": "mistralai/mistral-large", "name": "Mistral Large (OpenRouter)", "provider": "openrouter"},
+        ]
+
+
+# =============================================================================
 # Mock Provider (for testing)
 # =============================================================================
 
@@ -465,7 +589,10 @@ When analyzing code, output findings in JSON format when appropriate:
     
     def _get_default_provider(self) -> LLMProvider:
         """Get the default provider based on available API keys"""
-        if os.getenv("OPENAI_API_KEY"):
+        if os.getenv("OPENROUTER_API_KEY"):
+            logger.info("Using OpenRouter provider")
+            return OpenRouterProvider()
+        elif os.getenv("OPENAI_API_KEY"):
             logger.info("Using OpenAI provider")
             return OpenAIProvider()
         elif os.getenv("ZAI_API_KEY"):
@@ -654,6 +781,8 @@ def run_server(port: int = 3030, provider: str = "auto"):
         llm_provider = MockProvider()
     elif provider == "openai":
         llm_provider = OpenAIProvider()
+    elif provider == "openrouter":
+        llm_provider = OpenRouterProvider()
     elif provider == "zai":
         llm_provider = ZAIProvider()
     else:
@@ -688,9 +817,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--provider",
-        choices=["auto", "mock", "openai", "zai"],
+        choices=["auto", "mock", "openai", "openrouter", "zai"],
         default="auto",
-        help="LLM provider to use (default: auto-detect)"
+        help="LLM provider to use (default: auto-detect). Options: auto, mock, openai, openrouter, zai"
     )
     
     args = parser.parse_args()
