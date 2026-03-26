@@ -1,0 +1,205 @@
+{
+  "project_name": "EVM Solidity Auditing Agent",
+  "objective": "Desktop auditing tool with deep Solidity/EVM reasoning, attacker mindset, Python/Z3 verification, Slither static analysis, Foundry POCs/fuzzing, and automated reporting.",
+  "environment": {
+    "desktop": true,
+    "framework": "PySide6",
+    "python_version": ">=3.11",
+    "foundry_installed": true,
+    "z3_installed": true,
+    "slither_installed": true,
+    "terminal_access": true
+  },
+  "inputs": [
+    "Local directory of contracts (contracts/ or src/)",
+    "GitHub repository URL",
+    "Deployed proxy + implementation addresses",
+    "Etherscan API key",
+    "Alchemy API key"
+  ],
+  "outputs": [
+    "Verified bug reports (Markdown / PDF / JSON)",
+    "Foundry POCs for each confirmed bug",
+    "Session memory with leads, tests, fuzz results",
+    "Optional Python/Z3 notes attached to leads"
+  ],
+  "modules": [
+    {
+      "name": "UI",
+      "diagram_position": "Top",
+      "purpose": "Desktop interface for project/session management, model selection, and terminal integration",
+      "inputs": "User project selection, GitHub URL, API keys, model selection",
+      "outputs": "Project/session loaded into Session Management",
+      "integration_with_model": "Sends selected model to Model Brain for reasoning"
+    },
+    {
+      "name": "Session Management",
+      "diagram_position": "Below UI",
+      "purpose": "Maintains all leads, tests, fuzz results, and reports across sessions",
+      "inputs": "Projects loaded from UI, leads/results from Model Brain, Slither, Z3, Foundry",
+      "outputs": "Persistent session memory feeding all modules",
+      "integration_with_model": "Feeds Model Brain with current session state for context-aware reasoning"
+    },
+    {
+      "name": "Code Parsing & Call Graph",
+      "diagram_position": "Below Session Management",
+      "purpose": "Parses Solidity code and libraries, generates call graphs and workflow mapping",
+      "inputs": "Contracts/src directory or downloaded repo",
+      "outputs": "Parsed AST, call graphs, metadata",
+      "integration_with_model": "Supplies parsed code & call graphs to Model Brain for lead generation"
+    },
+    {
+      "name": "Model Brain / LLM Reasoning",
+      "diagram_position": "Center, connecting all analysis modules",
+      "purpose": "Core reasoning engine; generates, ranks, and triages leads; guides Python/Z3, Foundry, fuzzing, and reporting",
+      "inputs": [
+        "Parsed contracts & call graphs",
+        "Slither leads",
+        "Python/Z3 simulation results",
+        "Session memory"
+      ],
+      "outputs": [
+        "Ranked leads",
+        "Python/Z3 input constraints",
+        "Foundry test templates",
+        "Fuzz input suggestions",
+        "Draft bug reports"
+      ],
+      "integration_with_modules": [
+        "Slither Static Analysis",
+        "Python/Z3 Symbolic Testing",
+        "Foundry POC & Fuzzing",
+        "Reporting",
+        "Continuous Auditing"
+      ]
+    },
+    {
+      "name": "Slither Static Analysis",
+      "diagram_position": "Left of Model Brain",
+      "purpose": "Detects common vulnerabilities and risky patterns",
+      "inputs": "Parsed contracts from Code Parsing module",
+      "outputs": "Initial leads for Model Brain",
+      "integration_with_model": "Leads fed to Model Brain for ranking and triage"
+    },
+    {
+      "name": "Python / Z3 Symbolic Testing",
+      "diagram_position": "Below Model Brain",
+      "purpose": "Simulates attack paths and validates plausibility of leads",
+      "inputs": "Leads ranked by Model Brain",
+      "outputs": "Triaged plausible leads",
+      "integration_with_model": "Model Brain guides constraints and interprets results to prioritize tests"
+    },
+    {
+      "name": "Foundry POC & Fuzzing",
+      "diagram_position": "Right of Model Brain",
+      "purpose": "Definitive bug verification on actual bytecode",
+      "inputs": "Triaged leads, parsed contracts, forked environment",
+      "outputs": "Confirmed bugs, Foundry tests, fuzzing results",
+      "integration_with_model": "Model Brain generates test templates, edge cases, and fuzz input suggestions"
+    },
+    {
+      "name": "Reporting",
+      "diagram_position": "Bottom",
+      "purpose": "Generates structured reports with confirmed bugs, POCs, severity, and mitigation suggestions",
+      "inputs": "Confirmed bugs from Foundry, optional Python/Z3 notes",
+      "outputs": "Markdown / PDF / JSON reports",
+      "integration_with_model": "Model Brain drafts reports and recommends severity & mitigations"
+    },
+    {
+      "name": "Continuous Auditing",
+      "diagram_position": "Encapsulating loop around all modules",
+      "purpose": "Ensures exhaustive exploration after each confirmed bug",
+      "inputs": "Session memory, Model Brain insights, remaining code paths",
+      "outputs": "Persistent, continuously updated session memory",
+      "integration_with_model": "Model Brain identifies unexplored paths and reprioritizes leads"
+    }
+  ],
+  "security_focus": [
+    "Full EVM support",
+    "Deep Solidity understanding",
+    "Proxy contracts + fork mode handling",
+    "Attacker mindset reasoning",
+    "Fuzzing + symbolic testing integration"
+  ],
+  "notes": [
+    "Python/Z3 simulations are internal verification; final confirmation is always Foundry POC",
+    "Slither provides fast static analysis for initial leads",
+    "Foundry fuzzing ensures high coverage testing for edge cases",
+    "Session memory allows context across multiple files/projects",
+    "Model Brain is the central decision-making core guiding all modules"
+  ]
+}
+
+
+
++-----------------------------------------------------------+
+|                     Desktop UI (PySide6)                 |
+|-----------------------------------------------------------|
+| - Drag & drop project directories                         |
+| - GitHub repo import / clone                              |
+| - Session management                                      |
+| - Model selection dropdown (GLM-4.7, OpenRouter, etc.)   |
+| - Terminal integration for Foundry and other CLI tools   |
++-----------------------------------------------------------+
+                             |
+                             v
++-----------------------------------------------------------+
+|                  Session Management Module               |
+|-----------------------------------------------------------|
+| - Stores contracts_loaded, call_graphs, leads            |
+| - Stores python_verifications, foundry_tests, fuzz_results|
+| - Stores reports_generated                                |
++-----------------------------------------------------------+
+                             |
+                             v
++-----------------------------------------------------------+
+|               Code Parsing & Call Graph Module           |
+|-----------------------------------------------------------|
+| - Parses contracts/src/ directory                         |
+| - Resolves imports and library dependencies              |
+| - Builds call graphs and function mappings              |
+| - Handles proxy + implementation contracts (fork mode)   |
++-----------------------------------------------------------+
+                             |
+                             v
++-----------------------------------------------------------+
+|                 Model Brain / LLM Reasoning              |
+|-----------------------------------------------------------|
+| - Core reasoning engine, attacker mindset                |
+| - Generates & ranks leads                                 |
+| - Suggests Python/Z3 constraints & symbolic tests        |
+| - Suggests Foundry POC templates & fuzz inputs           |
+| - Drafts structured bug reports & severity recommendations|
+| - Guides continuous auditing and unexplored paths        |
++-----------------------------------------------------------+
+          |                  |                     |
+          v                  v                     v
++----------------+   +-------------------+   +------------------+
+| Slither Static |   | Python/Z3 Symbolic|   | Foundry POC &    |
+| Analysis       |   | Testing           |   | Fuzzing          |
+| - Generates    |   | - Simulates       |   | - Generates      |
+|   leads        |   |   exploit paths   |   |   tests & fuzz   |
+| - Identifies   |   | - Verifies plaus- |   | - Confirms bugs  |
+|   patterns     |   |   ibility         |   | - Updates session|
++----------------+   +-------------------+   +------------------+
+          |                  ^                     |
+          +------------------+---------------------+
+                             |
+                             v
++-----------------------------------------------------------+
+|                     Reporting Module                     |
+|-----------------------------------------------------------|
+| - Inputs: confirmed bugs + Foundry POC + optional Python |
+| - Outputs: Markdown / PDF / JSON reports                 |
+| - Includes bug description, affected contracts, severity |
+| - Attaches steps to reproduce and Foundry POC            |
++-----------------------------------------------------------+
+                             |
+                             v
++-----------------------------------------------------------+
+|                 Continuous Auditing Loop                 |
+|-----------------------------------------------------------|
+| - Even after confirmed bugs, continues analyzing         |
+| - Ensures full coverage of all workflows and libraries   |
+| - Updates session memory continuously                    |
++-----------------------------------------------------------+
