@@ -52,3 +52,9 @@ Thumbs.db
 .env
 *.pem
 *.key
+
+# Exclude irrelevant directories
+skills/
+upload/
+download/
+agent-ctx/
