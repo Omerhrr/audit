@@ -616,6 +616,27 @@ def run_server(port: int = 3030, provider: str = "auto"):
         print("Error: aiohttp is required. Install with: pip install aiohttp")
         sys.exit(1)
     
+    # Check if port is already in use
+    import socket
+    original_port = port
+    max_attempts = 5
+    
+    for attempt in range(max_attempts):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        result = sock.connect_ex(('127.0.0.1', port))
+        sock.close()
+        
+        if result != 0:  # Port is available
+            break
+        else:
+            if attempt == 0:
+                print(f"[WARNING] Port {port} is already in use")
+            port += 1
+            if attempt == max_attempts - 1:
+                print(f"[ERROR] Could not find available port after {max_attempts} attempts")
+                print(f"[INFO] Kill existing process with: fuser -k {original_port}/tcp")
+                sys.exit(1)
+    
     print(f"""
 ╔═══════════════════════════════════════════════════════════╗
 ║         EVM Auditor - LLM Service (Python)                ║
@@ -624,6 +645,9 @@ def run_server(port: int = 3030, provider: str = "auto"):
 ║  Port: {port}                                               ║
 ╚═══════════════════════════════════════════════════════════╝
 """)
+    
+    if port != original_port:
+        print(f"[INFO] Using alternative port {port} (original {original_port} was in use)")
     
     # Create provider based on argument
     if provider == "mock":

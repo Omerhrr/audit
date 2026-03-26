@@ -33,6 +33,11 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
+# Kill any existing process on the port
+echo "Checking port $LLM_PORT..."
+fuser -k $LLM_PORT/tcp 2>/dev/null || true
+sleep 1
+
 # Check if dependencies are installed
 echo "Checking dependencies..."
 python3 -c "import aiohttp, httpx" 2>/dev/null || {
@@ -47,12 +52,13 @@ LLM_PID=$!
 
 # Wait for LLM service to start
 echo "Waiting for LLM service..."
-sleep 3
-
-# Check if LLM service is running
-if ! curl -s "http://localhost:$LLM_PORT/health" > /dev/null 2>&1; then
-    echo "Warning: LLM service may not have started properly"
-fi
+for i in {1..10}; do
+    if curl -s "http://localhost:$LLM_PORT/health" > /dev/null 2>&1; then
+        echo "LLM service is ready!"
+        break
+    fi
+    sleep 1
+done
 
 # Start Python GUI
 echo "Starting Python GUI..."
